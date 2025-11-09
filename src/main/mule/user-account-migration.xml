@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:snowflake="http://www.mulesoft.org/schema/mule/snowflake" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/snowflake http://www.mulesoft.org/schema/mule/snowflake/current/mule-snowflake.xsd">
+	<snowflake:snowflake-config name="Snowflake_Config" doc:name="Snowflake Config" doc:id="bdb60a5d-f459-4cca-9292-062a50e13181" >
+		<snowflake:snowflake-connection accountName="cc53078.central-india.azure" warehouse="COMPUTE_WH" database="userdeveloper" schema="user1" user="Thiru3262" password="Thirumalesh3262" role="ACCOUNTADMIN" />
+	</snowflake:snowflake-config>
+	<flow name="user-account-migrationFlow" doc:id="b4e47ca1-1082-441f-8d8f-aa0169fb8ee1" >
+		<scheduler doc:name="Scheduler" doc:id="2723d773-3d3c-4599-8957-42fab3ef287d" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="4" timeUnit="SECONDS"/>
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="Logger" doc:id="a7c94034-e363-42c7-ae48-a12bfd684a68" message='#["flow starts logger"]'/>
+		<snowflake:select doc:name="Select the details from Source system (snowflake)" doc:id="2711537f-6b2c-43ab-a7a9-7311ed667861" config-ref="Snowflake_Config">
+			<snowflake:sql ><![CDATA[select * from userdetails]]></snowflake:sql>
+		</snowflake:select>
+		<logger level="INFO" doc:name="Logger" doc:id="65cf17a5-d45d-46b7-9349-6b8dd0bbff33" message="#[payload]"/>
+		<foreach doc:name="For Each" doc:id="64ff92ae-b259-4f75-81a8-5815b5157e19" >
+			<snowflake:select doc:id="768f56fc-19ff-43c6-ae0d-67ec6134bef8" config-ref="Snowflake_Config" target="recordexist" targetValue="#[payload[0]]" doc:name="MySql Select">
+				<snowflake:sql ><![CDATA[select * from user_dev1 where email_address=:email_address
+]]></snowflake:sql>
+				<snowflake:input-parameters ><![CDATA[#[{
+	"email_address": payload.EmailAddress	
+}]]]></snowflake:input-parameters>
+			</snowflake:select>
+			<logger level="INFO" doc:name="Logger" doc:id="d755cb62-e858-4ce9-9787-04c0417df737" message="#[payload]"/>
+			<ee:transform doc:name="Map to snowflake to mysql(source system to target system)" doc:id="05d92959-cd22-4bae-815e-da6edd59760a" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"first_name": payload.FIRSTNAME,
+	"middle_name": payload.MIDDLENAME,
+	"last_name": payload.LASTNAME,
+	"full_name": payload.FULLNAME,
+	"preferred_name": payload.PREFERREDNAME,
+	"salutation": payload.SALUTATION,
+	"gender": payload.GENDER,
+	"title": payload.TITLE,
+	"phone_number": payload.PHONENUMBER,
+	"phone_type": payload.PHONETYPE,
+	"country_code": payload.COUNTRYCODE,
+	"email_address": payload.EMAILADDRESS,
+	"date_of_birth": payload.DATEOFBIRTH,
+	"national_id": payload.NATIONALID,
+	"user_id": payload.USERID,
+	"address": payload.ADDRESS,
+	"city": payload.CITY,
+	"state": payload.STATE,
+	"zip_code": payload.ZIPCODE,
+	"country": payload.COUNTRY,
+	"age": payload.AGE,
+	"birth_year": payload.BIRTHYEAR,
+	"birth_month": payload.BIRTHMONTH,
+	"birth_day": payload.BIRTHDAY
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<choice doc:name="Choice" doc:id="489652a6-c66d-4b81-af5f-7c69b3fd038a" >
+				<when expression="#[vars.recordexist == null]">
+					<logger level="INFO" doc:name="Logger before insert" doc:id="d768c9a4-506e-4b06-8a85-2450d80c46a9" message="#[payload]"/>
+					<snowflake:insert doc:name="MySql Insert" doc:id="bd690739-7354-41fb-89dc-db277c4cef1b" config-ref="Snowflake_Config">
+						<snowflake:sql ><![CDATA[INSERT INTO user_dev1 (
+  first_name, middle_name, last_name, full_name, preferred_name, salutation,
+  gender, title, phone_number, phone_type, country_code, email_address,
+  date_of_birth, national_id, user_id, address, city, state, zip_code, country,
+  age, birth_year, birth_month, birth_day
+) VALUES (:first_name, :middle_name, :last_name, :full_name, :preferred_name, :salutation,:gender, :title, :phone_number, :phone_type, :country_code, :email_address,:date_of_birth, :national_id, :user_id, :address, :city, :state, :zip_code, :country,:age, :birth_year, :birth_month, :birth_day)]]></snowflake:sql>
+						<snowflake:input-parameters ><![CDATA[#[{
+  "first_name": payload.first_name,
+  "middle_name": payload.middle_name,
+  "last_name": payload.last_name,
+  "full_name": payload.full_name,
+  "preferred_name": payload.preferred_name,
+  "salutation": payload.salutation,
+  "gender": payload.gender,
+  "title": payload.title,
+  "phone_number": payload.phone_number,
+  "phone_type": payload.phone_type,
+  "country_code": payload.country_code,
+  "email_address": payload.email_address,
+  "date_of_birth": payload.date_of_birth,
+  "national_id": payload.national_id,
+  "user_id": payload.user_id,
+  "address": payload.address,
+  "city": payload.city,
+  "state": payload.state,
+  "zip_code": payload.zip_code,
+  "country": payload.country,
+  "age": payload.age,
+  "birth_year": payload.birth_year,
+  "birth_month": payload.birth_month,
+  "birth_day": payload.birth_day
+}]]]></snowflake:input-parameters>
+					</snowflake:insert>
+					<logger level="INFO" doc:name="insert operation end Logger" doc:id="f12f05c8-1d9c-48f4-ab44-248e98a4cce6" message='#["insert operation end"]'/>
+				</when>
+				<otherwise >
+					<ee:transform doc:name="Transform Message" doc:id="01d808ba-b42b-41da-b4fa-603d4c642117">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<logger level="INFO" doc:name="befor Update Logger" doc:id="e3cdeeae-f4b9-4514-97d7-7f2ecdbf8479" message="#[payload]"/>
+					<snowflake:update doc:name="MySql Update" doc:id="c254b27c-7d83-4dbf-857b-715989a273c6" config-ref="Snowflake_Config">
+						<snowflake:sql ><![CDATA[UPDATE user_dev1
+SET
+  first_name = :first_name,
+  middle_name = :middle_name,
+  last_name = :last_name,
+  full_name = :full_name,
+  preferred_name = :preferred_name,
+  salutation = :salutation,
+  gender = :gender,
+  title = :title,
+  phone_number = :phone_number,
+  phone_type = :phone_type,
+  country_code = :country_code,
+  date_of_birth = :date_of_birth,
+  national_id = :national_id,
+  user_id = :user_id,
+  address = :address,
+  city = :city,
+  state = :state,
+  zip_code = :zip_code,
+  country = :country,
+  age = :age,
+  birth_year = :birth_year,
+  birth_month = :birth_month,
+  birth_day = :birth_day
+WHERE email_address = :email_address;
+]]></snowflake:sql>
+						<snowflake:input-parameters ><![CDATA[#[{
+  "first_name": payload.first_name,
+  "middle_name": payload.middle_name,
+  "last_name": payload.last_name,
+  "full_name": payload.full_name,
+  "preferred_name": payload.preferred_name,
+  "salutation": payload.salutation,
+  "gender": payload.gender,
+  "title": payload.title,
+  "phone_number": payload.phone_number,
+  "phone_type": payload.phone_type,
+  "country_code": payload.country_code,
+  "email_address": payload.email_address,
+  "date_of_birth": payload.date_of_birth,
+  "national_id": payload.national_id,
+  "user_id": payload.user_id,
+  "address": payload.address,
+  "city": payload.city,
+  "state": payload.state,
+  "zip_code": payload.zip_code,
+  "country": payload.country,
+  "age": payload.age,
+  "birth_year": payload.birth_year,
+  "birth_month": payload.birth_month,
+  "birth_day": payload.birth_day
+}]]]></snowflake:input-parameters>
+					</snowflake:update>
+					<logger level="INFO" doc:name="update operation end Logger" doc:id="9980dba7-8079-4075-afdc-6b8160f81d1e" message='#["update operation end"]'/>
+				</otherwise>
+			</choice>
+		</foreach>
+	</flow>
+</mule>
